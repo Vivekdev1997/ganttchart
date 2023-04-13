@@ -1,0 +1,247 @@
+<html>
+
+<head>
+    <title>Simple Split Panels - jquery-resizable</title>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+    <script src="https://rawgit.com/RickStrahl/jquery-resizable/master/src/jquery-resizable.js"></script>
+    <link rel="stylesheet" href="http://cdn.dhtmlx.com/gantt/edge/dhtmlxgantt.css" type="text/css">
+    <script src="http://cdn.dhtmlx.com/gantt/edge/dhtmlxgantt.js"></script>
+    <script src="https://cdn.ravenjs.com/3.10.0/raven.min.js"></script>
+    <meta charset="utf-8" />
+</head>
+
+<body>
+    <div class="page-container">
+        <div id="gantt_here" style='width:100%; height:100vh;'></div>
+    </div>
+</body>
+<script>
+    gantt.attachEvent("onBeforeTaskUpdate", function (id, item) {
+        //any custom logic here
+        zoomToFit();
+    });
+    function toggleMode(toggle) {
+        gantt.$zoomToFit = !gantt.$zoomToFit;
+        if (gantt.$zoomToFit) {
+            toggle.innerHTML = "Set default Scale";
+            //Saving previous scale state for future restore
+            saveConfig();
+            zoomToFit();
+        } else {
+
+            toggle.innerHTML = "Zoom to Fit";
+            //Restore previous scale state
+            restoreConfig();
+            gantt.render();
+        }
+    }
+
+    var cachedSettings = {};
+
+    function saveConfig() {
+        var config = gantt.config;
+        cachedSettings = {};
+        cachedSettings.scales = config.scales;
+        cachedSettings.start_date = config.start_date;
+        cachedSettings.end_date = config.end_date;
+        cachedSettings.scroll_position = gantt.getScrollState();
+    }
+
+    function restoreConfig() {
+        applyConfig(cachedSettings);
+    }
+
+    function applyConfig(config, dates) {
+
+        gantt.config.scales = config.scales;
+        var lowest_scale = config.scales.reverse()[0];
+
+        if (dates && dates.start_date && dates.end_date) {
+            gantt.config.start_date = gantt.date.add(dates.start_date, -1, lowest_scale.unit);
+            gantt.config.end_date = gantt.date.add(gantt.date[lowest_scale.unit + "_start"](dates.end_date), 2, lowest_scale.unit);
+        } else {
+            gantt.config.start_date = gantt.config.end_date = null;
+        }
+
+        // restore the previous scroll position
+        if (config.scroll_position) {
+            setTimeout(function () {
+                gantt.scrollTo(config.scroll_position.x, config.scroll_position.y)
+            }, 4)
+        }
+    }
+    // get number of columns in timeline
+    function getUnitsBetween(from, to, unit, step) {
+        var start = new Date(from),
+            end = new Date(to);
+        var units = 0;
+        while (start.valueOf() < end.valueOf()) {
+            units++;
+            start = gantt.date.add(start, step, unit);
+        }
+        return units;
+    }
+
+    var zoomConfig = {
+        levels: [
+            // hours
+            {
+                name: "hour",
+                scale_height: 27,
+                scales: [
+                    { unit: "day", step: 1, format: "%d %M" },
+                    { unit: "hour", step: 1, format: "%H:%i" },
+                ]
+            },
+            // days
+            {
+                name: "day",
+                scale_height: 27,
+                scales: [
+                    { unit: "day", step: 1, format: "%d %M" }
+                ]
+            },
+            // weeks
+            {
+                name: "week",
+                scale_height: 50,
+                scales: [
+                    {
+                        unit: "week", step: 1, format: function (date) {
+                            var dateToStr = gantt.date.date_to_str("%d %M");
+                            var endDate = gantt.date.add(date, -6, "day");
+                            var weekNum = gantt.date.date_to_str("%W")(date);
+                            return "#" + weekNum + ", " + dateToStr(date) + " - " + dateToStr(endDate);
+                        }
+                    },
+                    { unit: "day", step: 1, format: "%j %D" }
+                ]
+            },
+            // months
+            {
+                name: "month",
+                scale_height: 50,
+                scales: [
+                    { unit: "month", step: 1, format: "%F, %Y" },
+                    {
+                        unit: "week", step: 1, format: function (date) {
+                            var dateToStr = gantt.date.date_to_str("%d %M");
+                            var endDate = gantt.date.add(gantt.date.add(date, 1, "week"), -1, "day");
+                            return dateToStr(date) + " - " + dateToStr(endDate);
+                        }
+                    }
+                ]
+            },
+            // years
+            {
+                name: "year",
+                scale_height: 50,
+                scales: [
+                    { unit: "year", step: 1, format: "%Y" }
+                ]
+            },
+            {
+                name: "year",
+                scale_height: 50,
+                scales: [
+                    {
+                        unit: "year", step: 5, format: function (date) {
+                            var dateToStr = gantt.date.date_to_str("%Y");
+                            var endDate = gantt.date.add(gantt.date.add(date, 5, "year"), -1, "day");
+                            return dateToStr(date) + " - " + dateToStr(endDate);
+                        }
+                    }
+                ]
+            },
+            // decades
+            {
+                name: "year",
+                scale_height: 50,
+                scales: [
+                    {
+                        unit: "year", step: 100, format: function (date) {
+                            var dateToStr = gantt.date.date_to_str("%Y");
+                            var endDate = gantt.date.add(gantt.date.add(date, 100, "year"), -1, "day");
+                            return dateToStr(date) + " - " + dateToStr(endDate);
+                        }
+                    },
+                    {
+                        unit: "year", step: 10, format: function (date) {
+                            var dateToStr = gantt.date.date_to_str("%Y");
+                            var endDate = gantt.date.add(gantt.date.add(date, 10, "year"), -1, "day");
+                            return dateToStr(date) + " - " + dateToStr(endDate);
+                        }
+                    },
+                ]
+            },
+        ],
+        element: function () {
+            return gantt.$root.querySelector(".gantt_task");
+        }
+    };
+
+
+    gantt.ext.zoom.init(zoomConfig);
+
+    gantt.ext.zoom.setLevel("day");
+
+    gantt.$zoomToFit = false;
+
+    gantt.message({ text: "Scale the Gantt chart to make the whole project fit the screen", expire: -1 });
+    gantt.init("gantt_here");
+    gantt.parse({
+        "data": [
+            { "id": 11, "text": "Project #1", "start_date": "28-03-2018", "duration": "11", "progress": 0.6, "open": true },
+            { "id": 1, "text": "Project #2", "start_date": "01-04-2018", "duration": "18", "progress": 0.4, "open": true },
+
+            { "id": 2, "text": "Task #1", "start_date": "02-04-2018", "duration": "8", "parent": "1", "progress": 0.5, "open": true },
+            { "id": 3, "text": "Task #2", "start_date": "11-04-2018", "duration": "8", "parent": "1", "progress": 0.6, "open": true },
+            { "id": 4, "text": "Task #3", "start_date": "13-04-2018", "duration": "6", "parent": "1", "progress": 0.5, "open": true },
+            { "id": 5, "text": "Task #1.1", "start_date": "02-04-2018", "duration": "7", "parent": "2", "progress": 0.6, "open": true },
+            { "id": 6, "text": "Task #1.2", "start_date": "03-04-2018", "duration": "7", "parent": "2", "progress": 0.6, "open": true },
+            { "id": 7, "text": "Task #2.1", "start_date": "11-04-2018", "duration": "8", "parent": "3", "progress": 0.6, "open": true },
+            { "id": 8, "text": "Task #3.1", "start_date": "14-04-2018", "duration": "5", "parent": "4", "progress": 0.5, "open": true },
+            { "id": 9, "text": "Task #3.2", "start_date": "14-04-2018", "duration": "4", "parent": "4", "progress": 0.5, "open": true },
+            { "id": 10, "text": "Task #3.3", "start_date": "14-04-2018", "duration": "3", "parent": "4", "progress": 0.5, "open": true },
+
+            { "id": 12, "text": "Task #1", "start_date": "03-04-2018", "duration": "5", "parent": "11", "progress": 1, "open": true },
+            { "id": 13, "text": "Task #2", "start_date": "02-04-2018", "duration": "7", "parent": "11", "progress": 0.5, "open": true },
+            { "id": 14, "text": "Task #3", "start_date": "02-04-2018", "duration": "6", "parent": "11", "progress": 0.8, "open": true },
+            { "id": 15, "text": "Task #4", "start_date": "02-04-2018", "duration": "5", "parent": "11", "progress": 0.2, "open": true },
+            { "id": 16, "text": "Task #5", "start_date": "02-04-2018", "duration": "7", "parent": "11", "progress": 0, "open": true },
+
+            { "id": 17, "text": "Task #2.1", "start_date": "03-04-2018", "duration": "2", "parent": "13", "progress": 1, "open": true },
+            { "id": 18, "text": "Task #2.2", "start_date": "06-04-2018", "duration": "3", "parent": "13", "progress": 0.8, "open": true },
+            { "id": 19, "text": "Task #2.3", "start_date": "10-04-2018", "duration": "4", "parent": "13", "progress": 0.2, "open": true },
+            { "id": 20, "text": "Task #2.4", "start_date": "10-04-2018", "duration": "4", "parent": "13", "progress": 0, "open": true },
+            { "id": 21, "text": "Task #4.1", "start_date": "03-04-2018", "duration": "4", "parent": "15", "progress": 0.5, "open": true },
+            { "id": 22, "text": "Task #4.2", "start_date": "03-04-2018", "duration": "4", "parent": "15", "progress": 0.1, "open": true },
+            { "id": 23, "text": "Task #4.3", "start_date": "03-04-2018", "duration": "5", "parent": "15", "progress": 0, "open": true }
+        ],
+        "links": [
+            { "id": "1", "source": "1", "target": "2", "type": "1" },
+            { "id": "2", "source": "2", "target": "3", "type": "0" },
+            { "id": "3", "source": "3", "target": "4", "type": "0" },
+            { "id": "4", "source": "2", "target": "5", "type": "2" },
+            { "id": "5", "source": "2", "target": "6", "type": "2" },
+            { "id": "6", "source": "3", "target": "7", "type": "2" },
+            { "id": "7", "source": "4", "target": "8", "type": "2" },
+            { "id": "8", "source": "4", "target": "9", "type": "2" },
+            { "id": "9", "source": "4", "target": "10", "type": "2" },
+            { "id": "10", "source": "11", "target": "12", "type": "1" },
+            { "id": "11", "source": "11", "target": "13", "type": "1" },
+            { "id": "12", "source": "11", "target": "14", "type": "1" },
+            { "id": "13", "source": "11", "target": "15", "type": "1" },
+            { "id": "14", "source": "11", "target": "16", "type": "1" },
+            { "id": "15", "source": "13", "target": "17", "type": "1" },
+            { "id": "16", "source": "17", "target": "18", "type": "0" },
+            { "id": "17", "source": "18", "target": "19", "type": "0" },
+            { "id": "18", "source": "19", "target": "20", "type": "0" },
+            { "id": "19", "source": "15", "target": "21", "type": "2" },
+            { "id": "20", "source": "15", "target": "22", "type": "2" },
+            { "id": "21", "source": "15", "target": "23", "type": "2" }
+        ]
+    }); 
+</script>
+
+</html>
